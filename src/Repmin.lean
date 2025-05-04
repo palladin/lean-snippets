@@ -1,4 +1,3 @@
-import Init.System.IO
 
 -- Bird's circular program
 
@@ -36,3 +35,23 @@ def print : Tree (Thunk Nat) → String
 def test : Tree Nat := .Branch (.Branch (.Leaf 0) (.Leaf 2)) (.Leaf 1)
 
 #eval test |> repmin |> print
+
+
+
+-- Pettorossi's higher-order program
+
+def repmin' : Tree Nat → Tree Nat :=
+  fun t =>
+    let rec aux : Tree Nat → ((Nat → Tree Nat) × Nat)
+      | .Leaf x => (fun m => .Leaf m, x)
+      | .Branch l r =>
+        let (fl, ml) := aux l
+        let (fr, mr) := aux r
+        (fun m => .Branch (fl m) (fr m), min ml mr)
+
+    let (f, m) := aux t
+    f m
+
+
+example : repmin' (.Branch (.Branch (.Leaf 0) (.Leaf 2)) (.Leaf 1)) = .Branch (.Branch (.Leaf 0) (.Leaf 0)) (.Leaf 0) :=
+  rfl
