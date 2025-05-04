@@ -13,13 +13,13 @@ unsafe def trace : (a → Thunk b → (c × b)) → a → c :=
 
 
 inductive Tree (a : Type u) : Type u
-  | lead : a → Tree a
+  | leaf : a → Tree a
   | branch : Tree a → Tree a → Tree a
 
 def copy : Tree Nat → Thunk Nat → (Tree (Thunk Nat) × Nat) :=
   fun t thunk =>
     match t with
-    | .lead x => (.lead thunk, x)
+    | .leaf x => (.leaf thunk, x)
     | .branch l r =>
       let (tl, ml) := copy l thunk
       let (tr, mr) := copy r thunk
@@ -29,10 +29,10 @@ unsafe def repmin : Tree Nat → Tree (Thunk Nat) :=
   fun t => trace copy t
 
 def print : Tree (Thunk Nat) → String
-  | .lead x => s!"L {x.get}"
+  | .leaf x => s!"L {x.get}"
   | .branch l r => s!"(B {print l} {print r})"
 
-def test : Tree Nat := .branch (.branch (.lead 0) (.lead 2)) (.lead 1)
+def test : Tree Nat := .branch (.branch (.leaf 0) (.leaf 2)) (.leaf 1)
 
 #eval test |> repmin |> print
 
@@ -43,7 +43,7 @@ def test : Tree Nat := .branch (.branch (.lead 0) (.lead 2)) (.lead 1)
 def repmin' : Tree Nat → Tree Nat :=
   fun t =>
     let rec aux : Tree Nat → ((Nat → Tree Nat) × Nat)
-      | .lead x => (fun m => .lead m, x)
+      | .leaf x => (fun m => .leaf m, x)
       | .branch l r =>
         let (fl, ml) := aux l
         let (fr, mr) := aux r
@@ -53,5 +53,5 @@ def repmin' : Tree Nat → Tree Nat :=
     f m
 
 
-example : repmin' (.branch (.branch (.lead 0) (.lead 2)) (.lead 1)) = .branch (.branch (.lead 0) (.lead 0)) (.lead 0) :=
+example : repmin' (.branch (.branch (.leaf 0) (.leaf 2)) (.leaf 1)) = .branch (.branch (.leaf 0) (.leaf 0)) (.leaf 0) :=
   rfl
