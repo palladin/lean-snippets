@@ -6,11 +6,10 @@ import Init.Util
 unsafe def sameObject : Bool :=
   let rec t : Thunk USize := Thunk.mk (fun () => ptrAddrUnsafe t)
   let p := ptrAddrUnsafe t
+  let p' := t.get
+  p == p'
 
-  ptrEq t.get p
-
-
-#eval sameObject -- Oups
+#eval sameObject
 
 unsafe def fix : (Thunk a → a) → Thunk a :=
   fun f =>
