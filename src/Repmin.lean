@@ -1,6 +1,17 @@
 
 -- Bird's circular program
 
+import Init.Util
+
+unsafe def sameObject : Bool :=
+  let rec t : Thunk USize := Thunk.mk (fun () => ptrAddrUnsafe t)
+  let p := ptrAddrUnsafe t
+
+  ptrEq t.get p
+
+
+#eval sameObject -- Oups
+
 unsafe def fix : (Thunk a → a) → Thunk a :=
   fun f =>
     let rec loop := Thunk.mk (fun () => f loop)
@@ -37,7 +48,6 @@ def test : Tree Nat := .branch (.branch (.leaf 0) (.leaf 2)) (.leaf 1)
 #eval test |> repmin |> print
 
 
-
 -- Pettorossi's higher-order program
 
 def repmin' : Tree Nat → Tree Nat :=
@@ -52,6 +62,5 @@ def repmin' : Tree Nat → Tree Nat :=
     let (f, m) := aux t
     f m
 
-
-example : repmin' (.branch (.branch (.leaf 0) (.leaf 2)) (.leaf 1)) = .branch (.branch (.leaf 0) (.leaf 0)) (.leaf 0) :=
+example : repmin' test = .branch (.branch (.leaf 0) (.leaf 0)) (.leaf 0) :=
   rfl
