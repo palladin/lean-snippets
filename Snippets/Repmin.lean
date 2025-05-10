@@ -1,10 +1,11 @@
 
 -- Bird's circular program
 
+import Snippets.MyMacros
 import Init.Util
 
 unsafe def sameObject : Bool :=
-  let rec t : Thunk USize := Thunk.mk (fun () => ptrAddrUnsafe t)
+  let rec t : Thunk USize := lazy (ptrAddrUnsafe t)
   let p := ptrAddrUnsafe t
   let p' := t.get
   p == p'
@@ -13,7 +14,7 @@ unsafe def sameObject : Bool :=
 
 unsafe def fix : (Thunk a → a) → Thunk a :=
   fun f =>
-    let rec loop := Thunk.mk (fun () => f loop)
+    let rec loop := lazy (f loop)
     loop
 
 unsafe def trace : (a → Thunk b → (c × b)) → a → c :=

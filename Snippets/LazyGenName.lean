@@ -1,6 +1,8 @@
 -- Based on "Using Circular Programs for Higher-Order Syntax"
 -- [https://emilaxelsson.github.io/documents/axelsson2013using.pdf]
 
+import Snippets.MyMacros
+
 abbrev LazyName := Thunk Nat
 abbrev Name := Nat
 
@@ -17,7 +19,7 @@ def maxBV : Exp LazyName → Name
 
 unsafe def lam (f : Exp LazyName → Exp LazyName) : Exp LazyName :=
     let rec result : Exp LazyName × LazyName :=
-      (f (.var (Thunk.mk (fun () => result.snd.get))), Thunk.mk (fun () => (maxBV result.fst) + 1))
+      (lazy (result.snd.get) |> .var |> f, lazy (result.fst |> maxBV |> (· + 1)))
     .lam result.snd result.fst
 
 

@@ -1,0 +1,1 @@
+{"version":3,"references":{"{\"c\":{\"n\":\"Lean.Parser.Category.term\",\"m\":\"Init.Notation\"}}":{"usages":[[2,18,2,22],[2,29,2,33]],"definition":null}},"module":"Snippets.MyMacros"}
