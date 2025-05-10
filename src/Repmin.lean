@@ -18,8 +18,8 @@ unsafe def fix : (Thunk a → a) → Thunk a :=
 
 unsafe def trace : (a → Thunk b → (c × b)) → a → c :=
   fun f x =>
-    let r := fix (fun g => f x (Thunk.map Prod.snd g))
-    r |>.get |>.fst
+    let r := fix (fun g => f x (g |>.map Prod.snd))
+    r.get.fst
 
 
 inductive Tree (a : Type u) : Type u
