@@ -1,8 +1,0 @@
-{"log":
- [{"message":
-   ".> LEAN_PATH=././.lake/build/lib/lean /Users/nick.palladinos/.elan/toolchains/leanprover--lean4---v4.19.0/bin/lean ././././Snippets/MyMacros.lean -R ./././. -o ././.lake/build/lib/lean/Snippets/MyMacros.olean -i ././.lake/build/lib/lean/Snippets/MyMacros.ilean -c ././.lake/build/ir/Snippets/MyMacros.c --json",
-   "level": "trace"},
-  {"message":
-   "././././Snippets/MyMacros.lean:8:0: { fn := fun x => 1 + 1 } : Thunk Nat",
-   "level": "info"}],
- "depHash": "15334468408078034820"}
