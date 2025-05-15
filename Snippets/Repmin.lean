@@ -2,15 +2,6 @@
 -- Bird's circular program
 
 import Snippets.MyMacros
-import Init.Util
-
-unsafe def sameObject : Bool :=
-  let rec t : Thunk USize := lazy (ptrAddrUnsafe t)
-  let p := ptrAddrUnsafe t
-  let p' := t.get
-  p == p'
-
-#eval sameObject
 
 unsafe def fix : (Thunk α → α) → Thunk α :=
   fun f =>
