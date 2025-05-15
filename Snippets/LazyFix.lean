@@ -1,10 +1,8 @@
-
 import Snippets.MyMacros
 
-
-unsafe def fix : (Thunk a → a) → Thunk a :=
+unsafe def fix : (Thunk α → α) → Thunk α :=
   fun f =>
-    let rec x : Thunk a := lazy (f x)
+    let rec x : Thunk α := lazy (f x)
     x
 
 unsafe def fact : Thunk (Nat → Nat) → Nat → Nat :=
@@ -14,10 +12,10 @@ unsafe def fact : Thunk (Nat → Nat) → Nat → Nat :=
 #eval fact |> fix |>.get |> (· 5)
 
 
-inductive LazyStream (a : Type u) : Type u where
-  | cons : a → Thunk (LazyStream a) → LazyStream a
+inductive LazyStream (α : Type u) : Type u where
+  | cons : α → Thunk (LazyStream α) → LazyStream α
 
-def LazyStream.take : Nat → LazyStream a → List a
+def LazyStream.take : Nat → LazyStream α → List α
   | 0,   _          => []
   | n+1, .cons h t => h :: LazyStream.take n t.get
 

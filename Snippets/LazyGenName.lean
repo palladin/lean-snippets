@@ -6,10 +6,10 @@ import Snippets.MyMacros
 abbrev LazyName := Thunk Nat
 abbrev Name := Nat
 
-inductive Exp (a : Type u) : Type u
-  | var : a → Exp a
-  | app : Exp a → Exp a → Exp a
-  | lam : a → Exp a → Exp a
+inductive Exp (α : Type u) : Type u
+  | var : α → Exp α
+  | app : Exp α → Exp α → Exp α
+  | lam : α → Exp α → Exp α
 deriving Repr
 
 def maxBV : Exp LazyName → Name

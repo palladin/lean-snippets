@@ -12,20 +12,20 @@ unsafe def sameObject : Bool :=
 
 #eval sameObject
 
-unsafe def fix : (Thunk a → a) → Thunk a :=
+unsafe def fix : (Thunk α → α) → Thunk α :=
   fun f =>
     let rec loop := lazy (f loop)
     loop
 
-unsafe def trace : (a → Thunk b → (c × b)) → a → c :=
+unsafe def trace : (α → Thunk b → (c × b)) → α → c :=
   fun f x =>
     let r := fix (fun g => f x (g |>.map Prod.snd))
     r.get.fst
 
 
-inductive Tree (a : Type u) : Type u
-  | leaf : a → Tree a
-  | branch : Tree a → Tree a → Tree a
+inductive Tree (α : Type u) : Type u
+  | leaf : α → Tree α
+  | branch : Tree α → Tree α → Tree α
 
 def copy : Tree Nat → Thunk Nat → (Tree (Thunk Nat) × Nat) :=
   fun t thunk =>
