@@ -17,7 +17,7 @@ inductive LazyStream (α : Type u) : Type u where
 
 def LazyStream.take : Nat → LazyStream α → List α
   | 0,   _          => []
-  | n+1, .cons h t => h :: LazyStream.take n t.get
+  | n + 1, .cons h t => h :: LazyStream.take n t.get
 
 unsafe def ones : Thunk (LazyStream Nat) :=
   fix (fun s => .cons 1 s)
