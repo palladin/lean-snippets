@@ -1,3 +1,6 @@
+-- From Löb's Theorem to Spreadsheet Evaluation
+-- based on http://blog.sigfpe.com/2006/11/from-l-theorem-to-spreadsheet.html
+
 import Snippets.MyMacros
 
 inductive LazyStream (α : Type u) : Type u where
