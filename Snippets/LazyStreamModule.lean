@@ -16,6 +16,9 @@ def LazyStream.skip : Nat → LazyStream α → LazyStream α
 def LazyStream.head : LazyStream α → α
   | .cons h _ => h.get
 
+def LazyStream.tail : LazyStream α → Thunk (LazyStream α)
+  | .cons _ t => t
+
 def LazyStream.map : (α → β) → LazyStream α → LazyStream β := fun f s =>
   match s with
   | .cons h t => .cons (lazy (f h.get)) (lazy (map f t.get))
