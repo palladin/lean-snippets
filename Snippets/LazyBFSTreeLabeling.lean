@@ -14,7 +14,7 @@ def treeMap : (α → β) → Tree α → Tree β := fun f t =>
   | .branch l r => .branch (treeMap f l) (treeMap f r)
 
 
-def bfs : Tree Nat →  Thunk (LazyStream Nat) → Tree (Thunk Nat) × Thunk (LazyStream Nat) :=
+def bfs : Tree Nat → Thunk (LazyStream Nat) → Tree (Thunk Nat) × Thunk (LazyStream Nat) :=
   fun t s =>
     match t with
     | .leaf _ =>
