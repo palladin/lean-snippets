@@ -16,8 +16,11 @@ def ContT.lift : [Monad m] → m α → ContT ω m α := fun c k => do
 instance : Functor (ContT ω m) where
   map f c := .map f c
 
-instance : Monad (ContT ω m) where
+instance : Applicative (ContT ω m) where
   pure := .pure
+  seq c f := fun k => c (fun a => f () (fun b => k (a b)))
+
+instance : Monad (ContT ω m) where
   bind := .bind
 
 instance [Monad m] : MonadLift m (ContT ω m) where
