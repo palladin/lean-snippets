@@ -7,3 +7,7 @@ name = "Snippets"
 [[lean_exe]]
 name = "yinyang"
 root = "Snippets.YinYang"
+
+[[lean_exe]]
+name = "unlambda"
+root = "Snippets.Unlambda"
