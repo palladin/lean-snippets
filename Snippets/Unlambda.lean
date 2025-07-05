@@ -73,6 +73,9 @@ partial def parse : List Char → Option (Expr × List Char) := fun chars =>
 def callCCTest : String :=
   "``cir"
 
+def callCCNumbers : String :=
+  "``r`ci`.*`ci"
+
 def helloWorldTest : String :=
   "```si`k``s.H``s.e``s.l``s.l``s.o``s. ``s.w``s.o``s.r``s.l``s.d``s.!``sri``si``si``si``si``si``si``si``si`ki"
 
@@ -89,4 +92,6 @@ def main : List String → IO UInt32 := fun _ => do
   runExample helloWorldTest
   IO.println "Running callCC test..."
   runExample callCCTest
+  IO.println "Running callCC numbers test..."
+  runExample callCCNumbers
   return 0
