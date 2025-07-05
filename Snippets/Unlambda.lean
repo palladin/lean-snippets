@@ -27,6 +27,10 @@ inductive Expr where
   | dot : Char → Expr
   | backtick : Expr → Expr → Expr
 
+def applyRec : Rec → Rec → ContT Unit IO Rec := fun f r => do
+  let r' ← f (Dynamic.mk r)
+  get r'
+
 def apply : ContT Unit IO Rec → ContT Unit IO Rec → ContT Unit IO Rec := fun first second => do
   let f ← first
   let s ← second
@@ -45,9 +49,7 @@ def eval : Expr → (Char → IO Unit) → ContT Unit IO Rec := fun expr put =>
   | .r => liftRec (fun rec => do
                put '\n'
                pure rec)
-  | .c => liftRec (fun rec => do
-               callCC (fun k =>
-                 k (fun _ => pure (Dynamic.mk rec))))
+  | .c => liftRec (fun rec => callCC (fun k => applyRec rec (toRec k)))
   | .dot char => liftRec (fun rec => do
                put char
                pure rec)
@@ -75,14 +77,16 @@ def helloWorldTest : String :=
   "```si`k``s.H``s.e``s.l``s.l``s.o``s. ``s.w``s.o``s.r``s.l``s.d``s.!``sri``si``si``si``si``si``si``si``si`ki"
 
 
-def runExample : IO Unit := do
-  match parse helloWorldTest.data with
+def runExample : String → IO Unit := fun program => do
+  match parse program.data with
   | some (expr, _) => do
       run (fun _ => pure ()) (eval expr (fun c => IO.print c))
       pure ()
   | none => IO.println "Parse error"
 
 def main : List String → IO UInt32 := fun _ => do
-  IO.println "Testing Hello World:"
-  runExample
+  IO.println "Running hello world test..."
+  runExample helloWorldTest
+  IO.println "Running callCC test..."
+  runExample callCCTest
   return 0
