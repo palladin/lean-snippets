@@ -76,6 +76,9 @@ def callCCTest : String :=
 def callCCNumbers : String :=
   "``r`ci`.*`ci"
 
+def callCCInfinite : String :=
+  "``cc`cc"
+
 def helloWorldTest : String :=
   "```si`k``s.H``s.e``s.l``s.l``s.o``s. ``s.w``s.o``s.r``s.l``s.d``s.!``sri``si``si``si``si``si``si``si``si`ki"
 
@@ -94,4 +97,6 @@ def main : List String → IO UInt32 := fun _ => do
   runExample callCCTest
   IO.println "Running callCC numbers test..."
   runExample callCCNumbers
+  --IO.println "Running callCC infinite test..."
+  --runExample callCCInfinite
   return 0
