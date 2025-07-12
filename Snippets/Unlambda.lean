@@ -37,7 +37,8 @@ def applyValue : Value → Value → ContT Unit IO Value := fun f arg => do
   | Value.Func func => do
     let result ← func (Dynamic.mk arg)
     get result
-  | Value.Delay => pure Value.Delay
+  | Value.Delay =>
+    pure arg
 
 def apply : ContT Unit IO Value → ContT Unit IO Value → ContT Unit IO Value := fun first second => do
   let f ← first
@@ -65,11 +66,11 @@ def eval : Expr → (Char → IO Unit) → ContT Unit IO Value := fun expr put =
       let f ← eval expr put
       match f with
       | Value.Delay =>
-          pure (Value.Func (fun d => do
+          pure <| Value.Func (fun d => do
             let arg ← get d
             let func ← eval expr' put
             let result ← applyValue func arg
-            pure (Dynamic.mk result)))
+            pure (Dynamic.mk result))
       | _ =>
           let arg ← eval expr' put
           applyValue f arg
@@ -137,7 +138,43 @@ def helloWorldExample : IO Unit := do
   runExample helloWorldTest
   runExample helloWorldInfinite
 
-def main : List String → IO UInt32 := fun _ => do
-  delayExamples
-  helloWorldExample
-  return 0
+def testDD : String :=
+  "```dd`.a.ai" -- aa
+
+def testDDExample : IO Unit := do
+  IO.println "Testing dd behavior..."
+  runExample testDD
+
+def main : List String → IO UInt32 := fun args => do
+  match args with
+  | [] => do
+    IO.println "Usage: unlambda [test_name]"
+    IO.println "Available tests:"
+    IO.println "  dd        - Test dd behavior"
+    IO.println "  delay     - Test delay examples"
+    IO.println "  callcc    - Test call/cc examples"
+    IO.println "  hello     - Test hello world examples"
+    IO.println "  all       - Run all tests"
+    return 1
+  | "dd" :: _ => do
+    testDDExample
+    return 0
+  | "delay" :: _ => do
+    delayExamples
+    return 0
+  | "callcc" :: _ => do
+    callCCExamples
+    return 0
+  | "hello" :: _ => do
+    helloWorldExample
+    return 0
+  | "all" :: _ => do
+    testDDExample
+    delayExamples
+    callCCExamples
+    helloWorldExample
+    return 0
+  | test :: _ => do
+    IO.println s!"Unknown test: {test}"
+    IO.println "Use 'unlambda' with no arguments to see available tests"
+    return 1
