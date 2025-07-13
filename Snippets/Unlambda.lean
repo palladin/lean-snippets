@@ -5,9 +5,7 @@ import Snippets.ContT
 inductive Value where
   | Delay : Value
   | Func : (Dynamic → ContT Unit IO Dynamic) → Value
-
-
-deriving instance TypeName for Value
+  deriving TypeName
 
 def get : Dynamic → IO Value := fun d =>
   match d.get? Value with
@@ -113,7 +111,7 @@ def delayExample2 : String :=
   "`id`ri" -- does not print a blank line
 
 def testDD : String :=
-  "```dd`.a.bi" -- aa
+  "```dd`.a.bi" -- ab
 
 def runExample : String → IO Unit := fun program => do
   match parse program.data with
