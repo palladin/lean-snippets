@@ -1,7 +1,5 @@
 import Snippets.MyMacros
-import Snippets.LazyStreamModule
-
-open LazyStream
+import Snippets.LazyStream
 
 
 inductive Tree (α : Type _) : Type _

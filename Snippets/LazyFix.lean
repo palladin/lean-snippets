@@ -1,8 +1,5 @@
 import Snippets.MyMacros
-import Snippets.LazyStreamModule
-
-open LazyStream
-
+import Snippets.LazyStream
 
 unsafe def fix : (Thunk α → α) → Thunk α :=
   fun f =>
@@ -16,6 +13,6 @@ unsafe def fact : Thunk (Nat → Nat) → Nat → Nat :=
 #eval fact |> fix |>.get |> (· 5)
 
 unsafe def ones : Thunk (LazyStream Nat) :=
-  fix (fun s => .cons (lazy (1)) s)
+  fix (fun s => .cons (1 : Nat) s)
 
 #eval ones.get |>.take 10

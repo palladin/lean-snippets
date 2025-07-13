@@ -1,7 +1,5 @@
 import Snippets.MyMacros
 
-namespace LazyStream
-
 inductive LazyStream (α : Type u) : Type u where
   | cons : Thunk α → Thunk (LazyStream α) → LazyStream α
 
@@ -23,7 +21,14 @@ def LazyStream.map : (α → β) → LazyStream α → LazyStream β := fun f s 
   match s with
   | .cons h t => .cons (lazy (f h.get)) (lazy (map f t.get))
 
-unsafe def LazyStream.replicate : α → LazyStream α := fun x => .cons x <| lazy (replicate x)
+
+unsafe def unfold : (α → (β × α)) → α → LazyStream β
+  | f, x =>
+    let (y, next) := f x
+    .cons y (lazy (unfold f next))
+
+unsafe def LazyStream.replicate : α → LazyStream α := fun x =>
+  unfold (fun x => (x, x)) x
 
 unsafe def LazyStream.ofList : α → List α → LazyStream α := fun d s =>
   match s with

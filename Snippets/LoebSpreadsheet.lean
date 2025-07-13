@@ -1,9 +1,7 @@
 -- From Löb's Theorem to Spreadsheet Evaluation
 -- based on http://blog.sigfpe.com/2006/11/from-l-theorem-to-spreadsheet.html
 
-import Snippets.LazyStreamModule
-
-open LazyStream
+import Snippets.LazyStream
 
 abbrev Cells α := LazyStream (LazyStream α)
 
