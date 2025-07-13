@@ -112,6 +112,9 @@ def delayExample1 : String :=
 def delayExample2 : String :=
   "`id`ri" -- does not print a blank line
 
+def testDD : String :=
+  "```dd`.a.bi" -- aa
+
 def runExample : String → IO Unit := fun program => do
   match parse program.data with
   | some (expr, _) => do
@@ -119,27 +122,33 @@ def runExample : String → IO Unit := fun program => do
       pure ()
   | none => IO.println "Parse error"
 
-def delayExamples : IO Unit := do
+def delayExample1Test : IO Unit := do
   IO.println "Running delay example 1..."
   runExample delayExample1
+
+def delayExample2Test : IO Unit := do
   IO.println "Running delay example 2..."
   runExample delayExample2
 
-def callCCExamples : IO Unit := do
+def callCCTestExample : IO Unit := do
   IO.println "Running callCC test..."
   runExample callCCTest
+
+def callCCNumbersExample : IO Unit := do
   IO.println "Running callCC numbers test..."
   runExample callCCNumbers
-  --IO.println "Running callCC infinite test..."
-  --runExample callCCInfinite
+
+def callCCInfiniteExample : IO Unit := do
+  IO.println "Running callCC infinite test..."
+  runExample callCCInfinite
 
 def helloWorldExample : IO Unit := do
   IO.println "Running hello world test..."
   runExample helloWorldTest
-  runExample helloWorldInfinite
 
-def testDD : String :=
-  "```dd`.a.ai" -- aa
+def helloWorldInfiniteExample : IO Unit := do
+  IO.println "Running hello world infinite test..."
+  runExample helloWorldInfinite
 
 def testDDExample : IO Unit := do
   IO.println "Testing dd behavior..."
@@ -150,29 +159,49 @@ def main : List String → IO UInt32 := fun args => do
   | [] => do
     IO.println "Usage: unlambda [test_name]"
     IO.println "Available tests:"
-    IO.println "  dd        - Test dd behavior"
-    IO.println "  delay     - Test delay examples"
-    IO.println "  callcc    - Test call/cc examples"
-    IO.println "  hello     - Test hello world examples"
-    IO.println "  all       - Run all tests"
+    IO.println "  dd          - Test dd behavior"
+    IO.println "  delay1      - Test delay example 1"
+    IO.println "  delay2      - Test delay example 2"
+    IO.println "  callcc      - Test basic call/cc"
+    IO.println "  callcc-nums - Test call/cc with numbers"
+    IO.println "  callcc-inf  - Test call/cc infinite"
+    IO.println "  hello       - Test hello world example"
+    IO.println "  hello-inf   - Test hello world infinite example"
+    IO.println "  all         - Run all tests"
     return 1
   | "dd" :: _ => do
     testDDExample
     return 0
-  | "delay" :: _ => do
-    delayExamples
+  | "delay1" :: _ => do
+    delayExample1Test
+    return 0
+  | "delay2" :: _ => do
+    delayExample2Test
     return 0
   | "callcc" :: _ => do
-    callCCExamples
+    callCCTestExample
+    return 0
+  | "callcc-nums" :: _ => do
+    callCCNumbersExample
+    return 0
+  | "callcc-inf" :: _ => do
+    callCCInfiniteExample
     return 0
   | "hello" :: _ => do
     helloWorldExample
     return 0
+  | "hello-inf" :: _ => do
+    helloWorldInfiniteExample
+    return 0
   | "all" :: _ => do
     testDDExample
-    delayExamples
-    callCCExamples
+    delayExample1Test
+    delayExample2Test
+    callCCTestExample
+    callCCNumbersExample
+    callCCInfiniteExample
     helloWorldExample
+    helloWorldInfiniteExample
     return 0
   | test :: _ => do
     IO.println s!"Unknown test: {test}"
