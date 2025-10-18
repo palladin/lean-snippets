@@ -160,117 +160,134 @@ def parse (s : String) : Except String SExpr := do
   let (expr, _) ← parseTokens (tokenize s)
   pure expr
 
-partial def sexprToExpr (e : SExpr) : Except String Expr :=
-  match e with
-  | .atom (.num n) => pure (.lit (.num n))
-  | .atom (.bool b) => pure (.lit (.bool b))
-  | .atom (.sym s) => pure (.var s)
-  | .nil => pure (.lit .nil)
-  | .cons (.atom (.sym "quote")) (.cons arg .nil) => pure (.quote arg)
-  | .cons (.atom (.sym "lambda")) (.cons params (.cons body .nil)) => do
-    let ps ← match sexprToList params with | some lst => pure lst | none => throw "lambda: bad params"
-    let names ← ps.mapM fun p => match p with | .atom (.sym s) => pure s | _ => throw "lambda: param names"
-    let bodyExpr ← sexprToExpr body
-    pure (.lambda names bodyExpr)
-  | .cons (.atom (.sym "if")) (.cons test (.cons conseq (.cons alt .nil))) => do
-    let testExpr ← sexprToExpr test
-    let conseqExpr ← sexprToExpr conseq
-    let altExpr ← sexprToExpr alt
-    pure (.ifExpr testExpr conseqExpr altExpr)
-  | .cons (.atom (.sym "cond")) clauses => do
-    let clauseList ← match sexprToList clauses with | some lst => pure lst | none => throw "cond: bad clauses"
-    let pairs ← clauseList.mapM fun clause => match clause with
-      | .cons (.atom (.sym "else")) (.cons expr .nil) => do
-        let e ← sexprToExpr expr
-        pure (.lit (.bool true), e)
-      | .cons test (.cons expr .nil) => do
-        let t ← sexprToExpr test
-        let e ← sexprToExpr expr
-        pure (t, e)
-      | _ => throw "cond: bad clause"
-    pure (.cond pairs)
-  | .cons (.atom (.sym "let")) (.cons bindings (.cons body .nil)) => do
-    let bindingList ← match sexprToList bindings with | some lst => pure lst | none => throw "let: bad bindings"
-    let pairs ← bindingList.mapM fun b => match b with
-      | .cons (.atom (.sym name)) (.cons valExpr .nil) => do
-        let e ← sexprToExpr valExpr
-        pure (name, e)
-      | _ => throw "let: binding format"
-    let bodyExpr ← sexprToExpr body
-    pure (.letExpr pairs bodyExpr)
-  | .cons (.atom (.sym "define")) (.cons (.atom (.sym name)) (.cons valExpr .nil)) => do
-    let e ← sexprToExpr valExpr
-    pure (.define name e)
-  | .cons (.atom (.sym "define")) (.cons (.cons (.atom (.sym name)) params) (.cons body .nil)) => do
-    let ps ← match sexprToList params with | some lst => pure lst | none => throw "define: bad params"
-    let names ← ps.mapM fun p => match p with | .atom (.sym s) => pure s | _ => throw "define: param names"
-    let bodyExpr ← sexprToExpr body
-    pure (.defineFunc name names bodyExpr)
-  | .cons (.atom (.sym "+")) args => do
-    let argList ← match sexprToList args with | some lst => pure lst | none => throw "+: bad args"
-    let exprs ← argList.mapM sexprToExpr
-    pure (.primAdd exprs)
-  | .cons (.atom (.sym "-")) args => do
-    let argList ← match sexprToList args with | some lst => pure lst | none => throw "-: bad args"
-    let exprs ← argList.mapM sexprToExpr
-    pure (.primSub exprs)
-  | .cons (.atom (.sym "*")) args => do
-    let argList ← match sexprToList args with | some lst => pure lst | none => throw "*: bad args"
-    let exprs ← argList.mapM sexprToExpr
-    pure (.primMul exprs)
-  | .cons (.atom (.sym "=")) (.cons a (.cons b .nil)) => do
-    let ea ← sexprToExpr a
-    let eb ← sexprToExpr b
-    pure (.primEq ea eb)
-  | .cons (.atom (.sym "<")) (.cons a (.cons b .nil)) => do
-    let ea ← sexprToExpr a
-    let eb ← sexprToExpr b
-    pure (.primLt ea eb)
-  | .cons (.atom (.sym ">")) (.cons a (.cons b .nil)) => do
-    let ea ← sexprToExpr a
-    let eb ← sexprToExpr b
-    pure (.primGt ea eb)
-  | .cons (.atom (.sym "car")) (.cons a .nil) => do
-    let ea ← sexprToExpr a
-    pure (.primCar ea)
-  | .cons (.atom (.sym "cdr")) (.cons a .nil) => do
-    let ea ← sexprToExpr a
-    pure (.primCdr ea)
-  | .cons (.atom (.sym "cons")) (.cons a (.cons b .nil)) => do
-    let ea ← sexprToExpr a
-    let eb ← sexprToExpr b
-    pure (.primCons ea eb)
-  | .cons (.atom (.sym "null?")) (.cons a .nil) => do
-    let ea ← sexprToExpr a
-    pure (.primNullQ ea)
-  | .cons (.atom (.sym "atom?")) (.cons a .nil) => do
-    let ea ← sexprToExpr a
-    pure (.primAtomQ ea)
-  | .cons (.atom (.sym "eq?")) (.cons a (.cons b .nil)) => do
-    let ea ← sexprToExpr a
-    let eb ← sexprToExpr b
-    pure (.primEqQ ea eb)
-  | .cons (.atom (.sym "zero?")) (.cons a .nil) => do
-    let ea ← sexprToExpr a
-    pure (.primZeroQ ea)
-  | .cons (.atom (.sym "number?")) (.cons a .nil) => do
-    let ea ← sexprToExpr a
-    pure (.primNumberQ ea)
-  | .cons (.atom (.sym "add1")) (.cons a .nil) => do
-    let ea ← sexprToExpr a
-    pure (.primAdd1 ea)
-  | .cons (.atom (.sym "sub1")) (.cons a .nil) => do
-    let ea ← sexprToExpr a
-    pure (.primSub1 ea)
-  | .cons (.atom (.sym "list")) args => do
-    let argList ← match sexprToList args with | some lst => pure lst | none => throw "list: bad args"
-    let exprs ← argList.mapM sexprToExpr
-    pure (.primList exprs)
-  | .cons fn args => do
-    let fnExpr ← sexprToExpr fn
-    let argList ← match sexprToList args with | some lst => pure lst | none => throw "apply: bad args"
-    let argExprs ← argList.mapM sexprToExpr
-    pure (.app fnExpr argExprs)
+mutual
+  def sexprToExpr (e : SExpr) : Except String Expr :=
+    match e with
+    | .atom (.num n) => pure (.lit (.num n))
+    | .atom (.bool b) => pure (.lit (.bool b))
+    | .atom (.sym s) => pure (.var s)
+    | .nil => pure (.lit .nil)
+    | .cons (.atom (.sym "quote")) (.cons arg .nil) => pure (.quote arg)
+    | .cons (.atom (.sym "lambda")) (.cons params (.cons body .nil)) => do
+      let ps ← match sexprToList params with | some lst => pure lst | none => throw "lambda: bad params"
+      let names ← ps.mapM fun p => match p with | .atom (.sym s) => pure s | _ => throw "lambda: param names"
+      let bodyExpr ← sexprToExpr body
+      pure (.lambda names bodyExpr)
+    | .cons (.atom (.sym "if")) (.cons test (.cons conseq (.cons alt .nil))) => do
+      let testExpr ← sexprToExpr test
+      let conseqExpr ← sexprToExpr conseq
+      let altExpr ← sexprToExpr alt
+      pure (.ifExpr testExpr conseqExpr altExpr)
+    | .cons (.atom (.sym "cond")) clauses => do
+      let pairs ← sexprListToCondClauses clauses
+      pure (.cond pairs)
+    | .cons (.atom (.sym "let")) (.cons bindings (.cons body .nil)) => do
+      let pairs ← sexprListToLetBindings bindings
+      let bodyExpr ← sexprToExpr body
+      pure (.letExpr pairs bodyExpr)
+    | .cons (.atom (.sym "define")) (.cons (.atom (.sym name)) (.cons valExpr .nil)) => do
+      let e ← sexprToExpr valExpr
+      pure (.define name e)
+    | .cons (.atom (.sym "define")) (.cons (.cons (.atom (.sym name)) params) (.cons body .nil)) => do
+      let ps ← match sexprToList params with | some lst => pure lst | none => throw "define: bad params"
+      let names ← ps.mapM fun p => match p with | .atom (.sym s) => pure s | _ => throw "define: param names"
+      let bodyExpr ← sexprToExpr body
+      pure (.defineFunc name names bodyExpr)
+    | .cons (.atom (.sym "+")) args => do
+      let exprs ← sexprListToExprList args
+      pure (.primAdd exprs)
+    | .cons (.atom (.sym "-")) args => do
+      let exprs ← sexprListToExprList args
+      pure (.primSub exprs)
+    | .cons (.atom (.sym "*")) args => do
+      let exprs ← sexprListToExprList args
+      pure (.primMul exprs)
+    | .cons (.atom (.sym "=")) (.cons a (.cons b .nil)) => do
+      let ea ← sexprToExpr a
+      let eb ← sexprToExpr b
+      pure (.primEq ea eb)
+    | .cons (.atom (.sym "<")) (.cons a (.cons b .nil)) => do
+      let ea ← sexprToExpr a
+      let eb ← sexprToExpr b
+      pure (.primLt ea eb)
+    | .cons (.atom (.sym ">")) (.cons a (.cons b .nil)) => do
+      let ea ← sexprToExpr a
+      let eb ← sexprToExpr b
+      pure (.primGt ea eb)
+    | .cons (.atom (.sym "car")) (.cons a .nil) => do
+      let ea ← sexprToExpr a
+      pure (.primCar ea)
+    | .cons (.atom (.sym "cdr")) (.cons a .nil) => do
+      let ea ← sexprToExpr a
+      pure (.primCdr ea)
+    | .cons (.atom (.sym "cons")) (.cons a (.cons b .nil)) => do
+      let ea ← sexprToExpr a
+      let eb ← sexprToExpr b
+      pure (.primCons ea eb)
+    | .cons (.atom (.sym "null?")) (.cons a .nil) => do
+      let ea ← sexprToExpr a
+      pure (.primNullQ ea)
+    | .cons (.atom (.sym "atom?")) (.cons a .nil) => do
+      let ea ← sexprToExpr a
+      pure (.primAtomQ ea)
+    | .cons (.atom (.sym "eq?")) (.cons a (.cons b .nil)) => do
+      let ea ← sexprToExpr a
+      let eb ← sexprToExpr b
+      pure (.primEqQ ea eb)
+    | .cons (.atom (.sym "zero?")) (.cons a .nil) => do
+      let ea ← sexprToExpr a
+      pure (.primZeroQ ea)
+    | .cons (.atom (.sym "number?")) (.cons a .nil) => do
+      let ea ← sexprToExpr a
+      pure (.primNumberQ ea)
+    | .cons (.atom (.sym "add1")) (.cons a .nil) => do
+      let ea ← sexprToExpr a
+      pure (.primAdd1 ea)
+    | .cons (.atom (.sym "sub1")) (.cons a .nil) => do
+      let ea ← sexprToExpr a
+      pure (.primSub1 ea)
+    | .cons (.atom (.sym "list")) args => do
+      let exprs ← sexprListToExprList args
+      pure (.primList exprs)
+    | .cons fn args => do
+      let fnExpr ← sexprToExpr fn
+      let argExprs ← sexprListToExprList args
+      pure (.app fnExpr argExprs)
+
+  -- Convert an SExpr list structure to a List of Exprs
+  def sexprListToExprList : SExpr → Except String (List Expr)
+    | .nil => pure []
+    | .cons head tail => do
+      let headExpr ← sexprToExpr head
+      let tailExprs ← sexprListToExprList tail
+      pure (headExpr :: tailExprs)
+    | _ => throw "expected list"
+
+  -- Convert an SExpr list structure to cond clauses
+  def sexprListToCondClauses : SExpr → Except String (List (Expr × Expr))
+    | .nil => pure []
+    | .cons (.cons (.atom (.sym "else")) (.cons expr .nil)) tail => do
+      let e ← sexprToExpr expr
+      let rest ← sexprListToCondClauses tail
+      pure ((.lit (.bool true), e) :: rest)
+    | .cons (.cons test (.cons expr .nil)) tail => do
+      let t ← sexprToExpr test
+      let e ← sexprToExpr expr
+      let rest ← sexprListToCondClauses tail
+      pure ((t, e) :: rest)
+    | .cons _ _ => throw "cond: bad clause"
+    | _ => throw "cond: bad clauses"
+
+  -- Convert an SExpr list structure to let bindings
+  def sexprListToLetBindings : SExpr → Except String (List (String × Expr))
+    | .nil => pure []
+    | .cons (.cons (.atom (.sym name)) (.cons valExpr .nil)) tail => do
+      let e ← sexprToExpr valExpr
+      let rest ← sexprListToLetBindings tail
+      pure ((name, e) :: rest)
+    | .cons _ _ => throw "let: binding format"
+    | _ => throw "let: bad bindings"
+end
 
 def parseExpr (s : String) : Except String Expr := do
   let sexpr ← parse s
