@@ -139,22 +139,44 @@ def parseAtom (s : String) : SExpr :=
   else if s == "-" || s == "+" || s == "*" then .sym s
   else match s.toInt? with | some n => .num n | none => .sym s
 
-partial def parseTokens : List Token → Except String (SExpr × List Token)
-  | [] => throw "Unexpected end of input"
-  | .lparen :: rest => parseList rest []
-  | .rparen :: _ => throw "Unexpected ')'"
-  | .quote :: rest => do
-    let (expr, remaining) ← parseTokens rest
-    pure (listToSexpr [.sym "quote", expr], remaining)
-  | .atom s :: rest => pure (parseAtom s, rest)
-where
-  parseList (tokens : List Token) (acc : List SExpr) : Except String (SExpr × List Token) :=
-    match tokens with
-    | [] => throw "Unexpected end of input in list"
-    | .rparen :: rest => pure (listToSexpr acc.reverse, rest)
-    | _ => do
-      let (expr, remaining) ← parseTokens tokens
-      parseList remaining (expr :: acc)
+inductive ParseFrame where
+  | listFrame : List SExpr → ParseFrame
+  | quoteFrame : ParseFrame
+
+def handleCompleted (expr : SExpr) : List ParseFrame → Except String (Option SExpr × List ParseFrame)
+  | [] => pure (some expr, [])
+  | .quoteFrame :: rest =>
+      handleCompleted (listToSexpr [SExpr.sym "quote", expr]) rest
+  | .listFrame elems :: rest =>
+    pure (none, .listFrame (expr :: elems) :: rest)
+
+def parseTokensProcess : List Token → List ParseFrame → Except String (SExpr × List Token)
+  | [], _ => throw "Unexpected end of input"
+  | tok :: rest, stack =>
+    match tok with
+    | Token.lparen =>
+      parseTokensProcess rest (.listFrame [] :: stack)
+    | Token.rparen =>
+      match stack with
+      | [] => throw "Unexpected ')'"
+      | frame :: stackTail =>
+        match frame with
+        | .quoteFrame => throw "quote: expected expression"
+        | .listFrame elems => do
+          let listExpr := listToSexpr (elems.reverse)
+          match ← handleCompleted listExpr stackTail with
+          | (some result, _) => pure (result, rest)
+          | (none, newStack) => parseTokensProcess rest newStack
+    | Token.quote =>
+      parseTokensProcess rest (.quoteFrame :: stack)
+    | Token.atom s => do
+      let atomExpr := parseAtom s
+      match ← handleCompleted atomExpr stack with
+      | (some result, _) => pure (result, rest)
+      | (none, newStack) => parseTokensProcess rest newStack
+
+def parseTokens (tokens : List Token) : Except String (SExpr × List Token) :=
+  parseTokensProcess tokens []
 
 def parse (s : String) : Except String SExpr := do
   let (expr, _) ← parseTokens (tokenize s)
@@ -293,133 +315,165 @@ def parseExpr (s : String) : Except String Expr := do
   let sexpr ← parse s
   sexprToExpr sexpr
 
-partial def eval (env : Env) (expr : Expr) : Except String Value :=
-  match expr with
-  | .lit sexpr => pure (.sexpr sexpr)
-  | .var name => Env.lookup env name
-  | .quote sexpr => pure (.sexpr sexpr)
-  | .lambda params body => pure (.closure params body env)
-  | .ifExpr test conseq alt => do
-    match ← eval env test with
-    | .sexpr (.atom (.bool false)) => eval env alt
-    | _ => eval env conseq
-  | .cond clauses =>
-    let rec evalCond : List (Expr × Expr) → Except String Value
-      | [] => throw "cond: no match"
-      | (test, result) :: rest => do
-        match ← eval env test with
-        | .sexpr (.atom (.bool false)) => evalCond rest
-        | _ => eval env result
-    evalCond clauses
-  | .letExpr bindings body => do
-    let vals ← bindings.mapM fun (_, expr) => eval env expr
-    let newBindings := bindings.map (·.1) |>.zip vals
-    eval (Env.extend env newBindings) body
-  | .define name valExpr => do
-    let val ← eval env valExpr
-    pure (.definition name val)
-  | .defineFunc name params body =>
-    let val := Value.closure params body env
-    pure (.definition name val)
-  | .primAdd exprs => do
-    let vals ← exprs.mapM (eval env)
-    let nums ← vals.mapM fun v => match v with | .sexpr (.atom (.num n)) => pure n | _ => throw "+: nums"
-    pure (.sexpr (.num (nums.foldl (· + ·) 0)))
-  | .primSub exprs => do
-    match exprs with
-    | [] => throw "-: need args"
-    | [x] => do
-      match ← eval env x with | .sexpr (.atom (.num n)) => pure (.sexpr (.num (-n))) | _ => throw "-: num"
-    | x :: xs => do
-      match ← eval env x with
-      | .sexpr (.atom (.num n)) => do
-        let rest ← xs.mapM (eval env)
-        let nums ← rest.mapM fun v => match v with | .sexpr (.atom (.num m)) => pure m | _ => throw "-: nums"
-        pure (.sexpr (.num (nums.foldl (· - ·) n)))
-      | _ => throw "-: num"
-  | .primMul exprs => do
-    let vals ← exprs.mapM (eval env)
-    let nums ← vals.mapM fun v => match v with | .sexpr (.atom (.num n)) => pure n | _ => throw "*: nums"
-    pure (.sexpr (.num (nums.foldl (· * ·) 1)))
-  | .primEq a b => do
-    match ← eval env a, ← eval env b with
-    | .sexpr (.atom (.num n1)), .sexpr (.atom (.num n2)) => pure (.sexpr (.bool (n1 == n2)))
-    | _, _ => throw "=: nums"
-  | .primLt a b => do
-    match ← eval env a, ← eval env b with
-    | .sexpr (.atom (.num n1)), .sexpr (.atom (.num n2)) => pure (.sexpr (.bool (n1 < n2)))
-    | _, _ => throw "<: nums"
-  | .primGt a b => do
-    match ← eval env a, ← eval env b with
-    | .sexpr (.atom (.num n1)), .sexpr (.atom (.num n2)) => pure (.sexpr (.bool (n1 > n2)))
-    | _, _ => throw ">: nums"
-  | .primCar a => do
-    match ← eval env a with
-    | .sexpr e => match car e with | .ok result => pure (.sexpr result) | .error msg => throw msg
-    | _ => throw "car: sexpr"
-  | .primCdr a => do
-    match ← eval env a with
-    | .sexpr e => match cdr e with | .ok result => pure (.sexpr result) | .error msg => throw msg
-    | _ => throw "cdr: sexpr"
-  | .primCons a b => do
-    match ← eval env a, ← eval env b with
-    | .sexpr ea, .sexpr eb => pure (.sexpr (.cons ea eb))
-    | _, _ => throw "cons: sexprs"
-  | .primList exprs => do
-    let vals ← exprs.mapM (eval env)
-    let sexprs ← vals.mapM fun v => match v with | .sexpr e => pure e | _ => throw "list: sexprs"
-    pure (.sexpr (listToSexpr sexprs))
-  | .primNullQ a => do
-    match ← eval env a with
-    | .sexpr e => pure (.sexpr (.bool (isNull e)))
-    | _ => throw "null?: sexpr"
-  | .primAtomQ a => do
-    match ← eval env a with
-    | .sexpr e => pure (.sexpr (.bool (isAtom e)))
-    | _ => throw "atom?: sexpr"
-  | .primEqQ a b => do
-    match ← eval env a, ← eval env b with
-    | .sexpr ea, .sexpr eb => pure (.sexpr (.bool (ea == eb)))
-    | _, _ => throw "eq?: sexprs"
-  | .primZeroQ a => do
-    match ← eval env a with
-    | .sexpr (.atom (.num 0)) => pure (.sexpr (.bool true))
-    | .sexpr (.atom (.num _)) => pure (.sexpr (.bool false))
-    | _ => throw "zero?: num"
-  | .primNumberQ a => do
-    match ← eval env a with
-    | .sexpr (.atom (.num _)) => pure (.sexpr (.bool true))
-    | .sexpr _ => pure (.sexpr (.bool false))
-    | _ => throw "number?: sexpr"
-  | .primAdd1 a => do
-    match ← eval env a with
-    | .sexpr (.atom (.num n)) => pure (.sexpr (.num (n + 1)))
-    | _ => throw "add1: num"
-  | .primSub1 a => do
-    match ← eval env a with
-    | .sexpr (.atom (.num n)) => pure (.sexpr (.num (n - 1)))
-    | _ => throw "sub1: num"
-  | .app fnExpr argExprs => do
-    let fn ← eval env fnExpr
-    let argVals ← argExprs.mapM (eval env)
-    match fn with
-    | .closure params body closureEnv => do
-      if params.length != argVals.length then throw s!"arity mismatch"
-      let mergedEnv := Env.extend env closureEnv
-      eval (Env.extend mergedEnv (params.zip argVals)) body
-    | _ => throw "not a function"
+def defaultFuel : Nat := 10000
+
+def evalCore : Nat → Env → Expr → Except String Value
+  | 0, _, _ => throw "out of fuel"
+  | Nat.succ fuel, env, expr =>
+    match expr with
+    | .lit sexpr => pure (.sexpr sexpr)
+    | .var name => Env.lookup env name
+    | .quote sexpr => pure (.sexpr sexpr)
+    | .lambda params body => pure (.closure params body env)
+    | .ifExpr test conseq alt => do
+      match ← evalCore fuel env test with
+      | .sexpr (.atom (.bool false)) => evalCore fuel env alt
+      | _ => evalCore fuel env conseq
+    | .cond clauses =>
+      let rec evalCond : List (Expr × Expr) → Except String Value
+        | [] => throw "cond: no match"
+        | (test, result) :: rest => do
+          match ← evalCore fuel env test with
+          | .sexpr (.atom (.bool false)) => evalCond rest
+          | _ => evalCore fuel env result
+      evalCond clauses
+    | .letExpr bindings body => do
+      let vals ← bindings.mapM fun (_, expr) => evalCore fuel env expr
+      let newBindings := bindings.map (·.1) |>.zip vals
+      evalCore fuel (Env.extend env newBindings) body
+    | .define name valExpr => do
+      let val ← evalCore fuel env valExpr
+      pure (.definition name val)
+    | .defineFunc name params body =>
+      let val := Value.closure params body env
+      pure (.definition name val)
+    | .primAdd exprs => do
+      let vals ← exprs.mapM (evalCore fuel env)
+      let nums ← vals.mapM fun v =>
+        match v with
+        | .sexpr (.atom (.num n)) => pure n
+        | _ => throw "+: nums"
+      pure (.sexpr (.num (nums.foldl (· + ·) 0)))
+    | .primSub exprs => do
+      match exprs with
+      | [] => throw "-: need args"
+      | [x] =>
+        match ← evalCore fuel env x with
+        | .sexpr (.atom (.num n)) => pure (.sexpr (.num (-n)))
+        | _ => throw "-: num"
+      | x :: xs => do
+        match ← evalCore fuel env x with
+        | .sexpr (.atom (.num n)) => do
+          let rest ← xs.mapM (evalCore fuel env)
+          let nums ← rest.mapM fun v =>
+            match v with
+            | .sexpr (.atom (.num m)) => pure m
+            | _ => throw "-: nums"
+          pure (.sexpr (.num (nums.foldl (· - ·) n)))
+        | _ => throw "-: num"
+    | .primMul exprs => do
+      let vals ← exprs.mapM (evalCore fuel env)
+      let nums ← vals.mapM fun v =>
+        match v with
+        | .sexpr (.atom (.num n)) => pure n
+        | _ => throw "*: nums"
+      pure (.sexpr (.num (nums.foldl (· * ·) 1)))
+    | .primEq a b => do
+      match ← evalCore fuel env a, ← evalCore fuel env b with
+      | .sexpr (.atom (.num n1)), .sexpr (.atom (.num n2)) =>
+        pure (.sexpr (.bool (n1 == n2)))
+      | _, _ => throw "=: nums"
+    | .primLt a b => do
+      match ← evalCore fuel env a, ← evalCore fuel env b with
+      | .sexpr (.atom (.num n1)), .sexpr (.atom (.num n2)) =>
+        pure (.sexpr (.bool (n1 < n2)))
+      | _, _ => throw "<: nums"
+    | .primGt a b => do
+      match ← evalCore fuel env a, ← evalCore fuel env b with
+      | .sexpr (.atom (.num n1)), .sexpr (.atom (.num n2)) =>
+        pure (.sexpr (.bool (n1 > n2)))
+      | _, _ => throw ">: nums"
+    | .primCar a => do
+      match ← evalCore fuel env a with
+      | .sexpr e =>
+        match car e with
+        | .ok result => pure (.sexpr result)
+        | .error msg => throw msg
+      | _ => throw "car: sexpr"
+    | .primCdr a => do
+      match ← evalCore fuel env a with
+      | .sexpr e =>
+        match cdr e with
+        | .ok result => pure (.sexpr result)
+        | .error msg => throw msg
+      | _ => throw "cdr: sexpr"
+    | .primCons a b => do
+      match ← evalCore fuel env a, ← evalCore fuel env b with
+      | .sexpr ea, .sexpr eb => pure (.sexpr (.cons ea eb))
+      | _, _ => throw "cons: sexprs"
+    | .primList exprs => do
+      let vals ← exprs.mapM (evalCore fuel env)
+      let sexprs ← vals.mapM fun v =>
+        match v with
+        | .sexpr e => pure e
+        | _ => throw "list: sexprs"
+      pure (.sexpr (listToSexpr sexprs))
+    | .primNullQ a => do
+      match ← evalCore fuel env a with
+      | .sexpr e => pure (.sexpr (.bool (isNull e)))
+      | _ => throw "null?: sexpr"
+    | .primAtomQ a => do
+      match ← evalCore fuel env a with
+      | .sexpr e => pure (.sexpr (.bool (isAtom e)))
+      | _ => throw "atom?: sexpr"
+    | .primEqQ a b => do
+      match ← evalCore fuel env a, ← evalCore fuel env b with
+      | .sexpr ea, .sexpr eb => pure (.sexpr (.bool (ea == eb)))
+      | _, _ => throw "eq?: sexprs"
+    | .primZeroQ a => do
+      match ← evalCore fuel env a with
+      | .sexpr (.atom (.num 0)) => pure (.sexpr (.bool true))
+      | .sexpr (.atom (.num _)) => pure (.sexpr (.bool false))
+      | _ => throw "zero?: num"
+    | .primNumberQ a => do
+      match ← evalCore fuel env a with
+      | .sexpr (.atom (.num _)) => pure (.sexpr (.bool true))
+      | .sexpr _ => pure (.sexpr (.bool false))
+      | _ => throw "number?: sexpr"
+    | .primAdd1 a => do
+      match ← evalCore fuel env a with
+      | .sexpr (.atom (.num n)) => pure (.sexpr (.num (n + 1)))
+      | _ => throw "add1: num"
+    | .primSub1 a => do
+      match ← evalCore fuel env a with
+      | .sexpr (.atom (.num n)) => pure (.sexpr (.num (n - 1)))
+      | _ => throw "sub1: num"
+    | .app fnExpr argExprs => do
+      let fn ← evalCore fuel env fnExpr
+      let argVals ← argExprs.mapM (evalCore fuel env)
+      match fn with
+      | .closure params body closureEnv =>
+        if params.length != argVals.length then
+          throw s!"arity mismatch"
+        else
+          let mergedEnv := Env.extend env closureEnv
+          evalCore fuel (Env.extend mergedEnv (params.zip argVals)) body
+      | _ => throw "not a function"
+
+def eval (env : Env) (expr : Expr) (fuel : Nat := defaultFuel) : Except String Value :=
+  evalCore fuel env expr
 
 def initialEnv : Env := Env.empty
 
-def evalString (s : String) : Except String Value := do
+def evalString (s : String) (fuel : Nat := defaultFuel) : Except String Value := do
   let expr ← parseExpr s
-  eval initialEnv expr
+  eval initialEnv expr (fuel := fuel)
 
-def evalProgram (env : Env) (exprs : List Expr) : Except String (Env × Value) :=
+def evalProgram (env : Env) (exprs : List Expr) (fuel : Nat := defaultFuel) : Except String (Env × Value) :=
   match exprs with
   | [] => throw "empty program"
   | [expr] => do
-    let val ← eval env expr
+    let val ← eval env expr (fuel := fuel)
     match val with
     | .definition name defVal =>
       let fixedVal := match defVal with
@@ -429,26 +483,30 @@ def evalProgram (env : Env) (exprs : List Expr) : Except String (Env × Value) :
       pure (newEnv, .definition name fixedVal)
     | _ => pure (env, val)
   | expr :: rest => do
-    let val ← eval env expr
+    let val ← eval env expr (fuel := fuel)
     match val with
     | .definition name defVal =>
       let fixedVal := match defVal with
         | .closure params body closureEnv => .closure params body ((name, defVal) :: closureEnv)
         | _ => defVal
-      evalProgram (Env.extend env [(name, fixedVal)]) rest
-    | _ => evalProgram env rest
+      evalProgram (Env.extend env [(name, fixedVal)]) rest (fuel := fuel)
+    | _ => evalProgram env rest (fuel := fuel)
 
-partial def evalProgramString (s : String) : Except String Value := do
+def evalProgramString (s : String) (fuel : Nat := defaultFuel) : Except String Value := do
   let tokens := tokenize s
-  let rec parseAll (ts : List Token) (acc : List SExpr) : Except String (List SExpr) :=
-    if ts.isEmpty then pure acc.reverse
-    else do
-      let (expr, rest) ← parseTokens ts
-      parseAll rest (expr :: acc)
-  let sexprs ← parseAll tokens []
+  let rec parseAll (fuel : Nat) (ts : List Token) (acc : List SExpr) : Except String (List SExpr) :=
+    match fuel with
+    | 0 => throw "out of fuel"
+    | Nat.succ fuel =>
+      if ts.isEmpty then
+        pure acc.reverse
+      else do
+        let (expr, rest) ← parseTokens ts
+        parseAll fuel rest (expr :: acc)
+  let sexprs ← parseAll (tokens.length.succ) tokens []
   if sexprs.isEmpty then throw "no expressions"
   let exprs ← sexprs.mapM sexprToExpr
-  let (_, result) ← evalProgram initialEnv exprs
+  let (_, result) ← evalProgram initialEnv exprs (fuel := fuel)
   pure result
 
 def test (name : String) (input : String) (expected : String) : IO Unit := do
