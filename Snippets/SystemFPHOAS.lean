@@ -54,6 +54,11 @@ def composeTy : Ty :=
           (.fn (.fn (.var a) (.var b))
             (.fn (.var a) (.var c))))))
 
+def churchNatTy : Ty :=
+  .all (fun a =>
+    .fn (.fn (.var a) (.var a))
+      (.fn (.var a) (.var a)))
+
 inductive Term' {tvar : Type _} (rep : Ty' tvar -> Type _) : Ty' tvar -> Type _ where
   | var : rep ty -> Term' rep ty
   | lam : (rep dom -> Term' rep ran) -> Term' rep (.fn dom ran)
@@ -117,16 +122,41 @@ def compose : Term composeTy :=
             .lam (fun x =>
               .app (.var f) (.app (.var g) (.var x))))))))
 
+def churchZero : Term churchNatTy :=
+  .tlam (fun _ =>
+    .lam (fun _ =>
+      .lam (fun x =>
+        .var x)))
+
+def churchOne : Term churchNatTy :=
+  .tlam (fun _ =>
+    .lam (fun f =>
+      .lam (fun x =>
+        .app (.var f) (.var x))))
+
+def churchTwo : Term churchNatTy :=
+  .tlam (fun _ =>
+    .lam (fun f =>
+      .lam (fun x =>
+        .app (.var f) (.app (.var f) (.var x)))))
+
 #check show (x : Type) → ULift x → ULift x from Term.denote polyId
 
 #eval (Term.denote polyId) Nat ⟨3⟩
 #eval (Term.denote polyConst) Nat Bool ⟨2⟩ ⟨true⟩
 #eval (Term.denote compose) Nat Nat Nat (fun n => ⟨n.down + 1⟩) (fun n => ⟨n.down * 2⟩) ⟨10⟩
+#eval (Term.denote churchZero) Nat (fun n => ⟨n.down + 1⟩) ⟨0⟩
+#eval (Term.denote churchOne) Nat (fun n => ⟨n.down + 1⟩) ⟨0⟩
+#eval (Term.denote churchTwo) Nat (fun n => ⟨n.down + 1⟩) ⟨0⟩
 
 #eval Ty.pretty idTy
 #eval Ty.pretty composeTy
+#eval Ty.pretty churchNatTy
 #eval Term.pretty polyId
 #eval Term.pretty polyConst
 #eval Term.pretty compose
+#eval Term.pretty churchZero
+#eval Term.pretty churchOne
+#eval Term.pretty churchTwo
 
 end SystemFPHOAS
