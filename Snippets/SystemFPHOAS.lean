@@ -108,14 +108,25 @@ def polyConst : Term polyConstTy :=
       .lam (fun x =>
         .lam (fun _ => .var x))))
 
-#check show (x : Type) →  ULift x → ULift x from Term.denote polyId
+def compose : Term composeTy :=
+  .tlam (fun _ =>
+    .tlam (fun _ =>
+      .tlam (fun _ =>
+        .lam (fun f =>
+          .lam (fun g =>
+            .lam (fun x =>
+              .app (.var f) (.app (.var g) (.var x))))))))
+
+#check show (x : Type) → ULift x → ULift x from Term.denote polyId
 
 #eval (Term.denote polyId) Nat ⟨3⟩
 #eval (Term.denote polyConst) Nat Bool ⟨2⟩ ⟨true⟩
+#eval (Term.denote compose) Nat Nat Nat (fun n => ⟨n.down + 1⟩) (fun n => ⟨n.down * 2⟩) ⟨10⟩
 
 #eval Ty.pretty idTy
 #eval Ty.pretty composeTy
 #eval Term.pretty polyId
 #eval Term.pretty polyConst
+#eval Term.pretty compose
 
 end SystemFPHOAS
