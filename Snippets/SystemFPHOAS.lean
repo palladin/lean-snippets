@@ -1,0 +1,121 @@
+/-!
+  # System F via Pure PHOAS
+
+  An implementation of System F (the polymorphic lambda calculus) using
+  Parametric Higher-Order Abstract Syntax, following the patterns from
+  https://lean-lang.org/examples/1900-1-1-parametric-higherorder-abstract-syntax/
+
+  Terms are intrinsically typed: `Term' rep ty` is indexed by the object-language
+  type of the term. This file keeps the core syntax together with rendering and
+  denotation.
+-/
+
+namespace SystemFPHOAS
+
+
+inductive Ty' (tvar : Type _) : Type _ where
+  | var : tvar -> Ty' tvar
+  | fn : Ty' tvar -> Ty' tvar -> Ty' tvar
+  | all : (tvar -> Ty' tvar) -> Ty' tvar
+
+abbrev Ty := {tvar : Type _} -> Ty' tvar
+
+namespace Ty'
+
+def pretty (ty : Ty' String) (next : Nat := 0) : String :=
+  match ty with
+  | .var name => name
+  | .fn dom cod => s!"({pretty dom next} -> {pretty cod next})"
+  | .all body =>
+      let name := s!"T{next}"
+      s!"(forall {name}. {pretty (body name) (next + 1)})"
+
+@[reducible] def denote : Ty' (Type v) -> Type (v + 1)
+  | .var ty => ULift.{v + 1, v} ty
+  | .fn dom ran => denote dom -> denote ran
+  | .all body => (ty : Type v) -> denote (body ty)
+
+end Ty'
+
+def Ty.pretty (ty : Ty) : String :=
+  Ty'.pretty (ty (tvar := String))
+
+def Ty.denote (ty : Ty) : Type 1 :=
+  Ty'.denote (ty (tvar := Type))
+
+def idTy : Ty :=
+  .all (fun ty => .fn (.var ty) (.var ty))
+
+def composeTy : Ty :=
+  .all (fun a =>
+    .all (fun b =>
+      .all (fun c =>
+        .fn (.fn (.var b) (.var c))
+          (.fn (.fn (.var a) (.var b))
+            (.fn (.var a) (.var c))))))
+
+inductive Term' {tvar : Type _} (rep : Ty' tvar -> Type _) : Ty' tvar -> Type _ where
+  | var : rep ty -> Term' rep ty
+  | lam : (rep dom -> Term' rep ran) -> Term' rep (.fn dom ran)
+  | app : Term' rep (.fn dom ran) -> Term' rep dom -> Term' rep ran
+  | tlam : ((ty : tvar) -> Term' rep (body ty)) -> Term' rep (.all body)
+
+abbrev Term (ty : Ty) := {tvar : Type _} -> {rep : Ty' tvar -> Type _} -> Term' rep (ty (tvar := tvar))
+
+namespace Term'
+
+def pretty {ty : Ty' String} (term : Term' (fun _ : Ty' String => String) ty)
+    (nextTy : Nat := 0) (nextTm : Nat := 0) : String :=
+  match term with
+  | .var name => name
+  | .lam body =>
+      let name := s!"x{nextTm}"
+      s!"(fun {name} => {pretty (body name) nextTy (nextTm + 1)})"
+  | .app funTerm argTerm =>
+      s!"({pretty funTerm nextTy nextTm} {pretty argTerm nextTy nextTm})"
+  | .tlam body =>
+      let name := s!"T{nextTy}"
+      s!"(Lambda {name}. {pretty (body name) (nextTy + 1) nextTm})"
+
+@[simp] def denote {ty : Ty' (Type v)} : Term' Ty'.denote ty -> Ty'.denote ty
+  | .var x => x
+  | .lam body => show Ty'.denote (.fn _ _) from fun x => denote (body x)
+  | .app funTerm argTerm =>
+      show Ty'.denote _ from (denote funTerm) (denote argTerm)
+  | .tlam body => show Ty'.denote (.all _) from fun ty => denote (body ty)
+
+end Term'
+
+def Term.pretty (term : Term ty) : String :=
+  let renderedTerm := Term'.pretty (term (tvar := String) (rep := fun _ => String))
+  let renderedType := Ty.pretty ty
+  s!"({renderedTerm} : {renderedType})"
+
+def Term.denote (term : Term ty) : Ty.denote ty :=
+  Term'.denote (term (tvar := Type) (rep := Ty'.denote))
+
+def polyId : Term idTy :=
+  .tlam (fun _ => .lam (fun x => .var x))
+
+def polyConstTy : Ty :=
+  .all (fun a =>
+    .all (fun b =>
+      .fn (.var a) (.fn (.var b) (.var a))))
+
+def polyConst : Term polyConstTy :=
+  .tlam (fun _ =>
+    .tlam (fun _ =>
+      .lam (fun x =>
+        .lam (fun _ => .var x))))
+
+#check show (x : Type) →  ULift x → ULift x from Term.denote polyId
+
+#eval (Term.denote polyId) Nat ⟨3⟩
+#eval (Term.denote polyConst) Nat Bool ⟨2⟩ ⟨true⟩
+
+#eval Ty.pretty idTy
+#eval Ty.pretty composeTy
+#eval Term.pretty polyId
+#eval Term.pretty polyConst
+
+end SystemFPHOAS

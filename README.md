@@ -35,6 +35,7 @@ This repository showcases various functional programming concepts, from lazy eva
 | File | Description |
 |------|-------------|
 | [LittleScheme.lean](Snippets/LittleScheme.lean) | A minimal Scheme interpreter for *"The Little Schemer"* with lexer, parser, and evaluator |
+| [SystemFPHOAS.lean](Snippets/SystemFPHOAS.lean) | Intrinsically typed System F via parametric HOAS, with pretty-printing and denotation for closed terms |
 | [Unlambda.lean](Snippets/Unlambda.lean) | Interpreter for [Unlambda](http://www.madore.org/~david/programs/unlambda/), the esoteric combinator-based language |
 
 ### Category Theory & Abstractions
@@ -76,6 +77,7 @@ lake env lean Snippets/<filename>.lean
 
 ## References
 
+- [Parametric Higher-Order Abstract Syntax (Lean example)](https://lean-lang.org/examples/1900-1-1-parametric-higherorder-abstract-syntax/)
 - [Using Circular Programs for Higher-Order Syntax](https://emilaxelsson.github.io/documents/axelsson2013using.pdf)
 - [From Löb's Theorem to Spreadsheet Evaluation](http://blog.sigfpe.com/2006/11/from-l-theorem-to-spreadsheet.html)
 - [Naperian Functors](https://www.cs.ox.ac.uk/people/jeremy.gibbons/publications/aplicative.pdf)
