@@ -1,13 +1,15 @@
 /-!
   # System F via Pure PHOAS
 
-  An implementation of System F (the polymorphic lambda calculus) using
+  An executable PHOAS fragment of System F (the polymorphic lambda calculus) using
   Parametric Higher-Order Abstract Syntax, following the patterns from
   https://lean-lang.org/examples/1900-1-1-parametric-higherorder-abstract-syntax/
 
   Terms are intrinsically typed: `Term' rep ty` is indexed by the object-language
   type of the term. This file keeps the core syntax together with rendering and
-  denotation.
+  denotation for the variable-instantiation fragment, where polymorphic terms are
+  instantiated at bound type variables rather than arbitrary compound type
+  expressions.
 -/
 
 namespace SystemFPHOAS
@@ -87,6 +89,8 @@ inductive Term' {tvar : Type _} (rep : Ty' tvar -> Type _) : Ty' tvar -> Type _ 
   | lam : (rep dom -> Term' rep ran) -> Term' rep (.fn dom ran)
   | app : Term' rep (.fn dom ran) -> Term' rep dom -> Term' rep ran
   | tlam : ((ty : tvar) -> Term' rep (body ty)) -> Term' rep (.all body)
+  -- This keeps evaluation simple, but it is weaker than full System F because
+  -- only bound type variables may be used as type arguments.
   | tapp : Term' rep (.all body) -> (ty : tvar) -> Term' rep (body ty)
 
 abbrev Term (ty : Ty) := {tvar : Type _} -> {rep : Ty' tvar -> Type _} -> Term' rep (ty (tvar := tvar))

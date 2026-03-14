@@ -35,7 +35,7 @@ This repository showcases various functional programming concepts, from lazy eva
 | File | Description |
 |------|-------------|
 | [LittleScheme.lean](Snippets/LittleScheme.lean) | A minimal Scheme interpreter for *"The Little Schemer"* with lexer, parser, and evaluator |
-| [SystemFPHOAS.lean](Snippets/SystemFPHOAS.lean) | Intrinsically typed System F via parametric HOAS, with pretty-printing and denotation for closed terms |
+| [SystemFPHOAS.lean](Snippets/SystemFPHOAS.lean) | Intrinsically typed PHOAS fragment of System F, with pretty-printing and denotation for the executable variable-instantiation fragment |
 | [Unlambda.lean](Snippets/Unlambda.lean) | Interpreter for [Unlambda](http://www.madore.org/~david/programs/unlambda/), the esoteric combinator-based language |
 
 ### Category Theory & Abstractions
@@ -72,6 +72,10 @@ Most files include `#eval` commands that can be executed directly in the Lean ed
 ```bash
 lake env lean Snippets/<filename>.lean
 ```
+
+`SystemFPHOAS.lean` currently supports polymorphism together with type
+instantiation at bound type variables. Arbitrary compound type instantiation is
+the main missing piece between the current executable kernel and full System F.
 
 ---
 
